@@ -1,0 +1,302 @@
+---
+title: "Does following a vegetarian diet result in a happier life?"
+author: "Iully Cegovia Rodrigues"
+subtitle: "Analysis on the link between life satisfaction and vegetarianism"
+bibliography: R13_Iully_CegoviaRodrigues_ref.bib
+csl: begell-house-apa.csl
+output:
+  rmdformats::html_docco:
+    highlight: kate
+    link_citation: yes
+    code_folding: hide
+    toc: true
+    toc_float:
+      collapsed: false
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r , warning=FALSE, echo=TRUE, message=FALSE, include=TRUE}
+
+setwd("C:/Users/nelsa/OneDrive - europa-uni.de/Desktop/Stata")
+
+library(haven)
+library(dplyr)
+pequiv <- read_dta("pequiv.dta", col_select = c(pid, syear, p11101, d11102ll, d11101, m11125, d11108))
+indiv_quest <- read_dta("pl.dta", col_select = c(pid, syear, ple0182))
+master <- merge(indiv_quest, pequiv, by = c("pid", "syear"))
+
+rm(pequiv, indiv_quest)
+
+```
+
+```{r , warning=FALSE, echo=TRUE, message=FALSE, include=TRUE}
+library(tidyverse)
+library(dplyr)
+library(haven)
+library(gt)
+data <- master %>%
+  filter(ple0182 > 0, syear >= 2016, p11101 >= 0, d11102ll >0, m11125 >0, d11108 >0) %>%
+  rename(id = pid, year = syear, life_satisfaction = p11101, diet = ple0182, gender = d11102ll, age = d11101, education_level = d11108, health_satisfaction = m11125) %>%
+  mutate(diet = ifelse(diet == 3,0,1)) %>%
+mutate(gender = ifelse(gender == 2,1,0))  #1 = female, 0 = male
+ data$diet <- factor(data$diet, levels = c(0,1), labels = c("Non-Vegetarian", "Vegetarian"))
+  data$gender <- factor(data$gender, levels = c(1,0), labels = c("Female", "Male"))
+  data$life_satisfaction <- factor(data$life_satisfaction, levels = c(0,1,2,3,4,5,6,7,8,9,10), labels = c("Very Unsatisfied", "Very Unsatisfied", "Unsatisfied", "Unsatisfied",  "Neutral", "Neutral", "Neutral", "Satisfied", "Satisfied", "Very Satisfied", "Very Satisfied"))
+  data$health_satisfaction <- factor(data$health_satisfaction, levels = c(0,1,2,3,4,5,6,7,8,9,10), labels = c("Very Unsatisfied", "Very Unsatisfied", "Unsatisfied", "Unsatisfied",  "Neutral", "Neutral", "Neutral", "Satisfied", "Satisfied", "Very Satisfied", "Very Satisfied"))
+  data$education_level <- factor(data$education_level, levels = c(1,2,3), labels = c("Lower than Secondary School", "Secondary School", "Higher Education"))
+ 
+  datastats <- master %>%
+  filter(ple0182 > 0, syear >= 2016, p11101 >= 0, d11102ll >0, m11125 >0, d11108 >0) %>%
+  rename(id = pid, year = syear, life_satisfaction = p11101, diet = ple0182, gender = d11102ll, age = d11101, education_level = d11108, health_satisfaction = m11125) %>%
+  mutate(diet = ifelse(diet == 3,0,1)) %>%
+mutate(gender = ifelse(gender == 2,1,0))  #1 = female, 0 = male
+ datastats$diet <- factor(datastats$diet)
+  datastats$gender <- factor(datastats$gender)
+  datastats$life_satisfaction <- factor(datastats$life_satisfaction)
+  datastats$health_satisfaction <- factor(datastats$health_satisfaction)
+datastats$education_level <- factor(datastats$education_level)   
+```
+
+```{r , warning=FALSE, echo=FALSE, message=FALSE, include=FALSE}
+soep1 <- master  %>% 
+  filter(ple0182 > 0, syear >= 2016, p11101 >= 0, d11102ll >0, m11125 >0, d11108 >0) %>%
+  rename(Id = pid, Year = syear, Life_Satisfaction = p11101, Diet = ple0182, Gender = d11102ll, Age = d11101, Education_Level = d11108, Health_Satisfaction = m11125) %>%
+  mutate(Vegetarian = ifelse(Diet == 3,0,1), 
+         Age = as.numeric(as.double(Age))) %>%
+ mutate(Female = ifelse(Gender == 2,1,0)) %>%
+mutate_at(vars(Life_Satisfaction, Education_Level,Health_Satisfaction), factor)
+
+```
+
+# Introduction
+
+In recent years, vegetarianism has seen a noticeable increase in western countries.
+There are many different factors behind this trend: ethical reasons such as animal welfare concerns, environmental concerns, health concerns, economic concerns and so forth.
+Vegetarianism is defined not only as a diet but also as a lifestyle and social movement currently spreading worldwide [@K2021].
+
+```{r , fig.cap = "Figure 1: Assessment of increase in vegetarianism in Germany" ,warning=FALSE, echo=TRUE, message=FALSE, include=TRUE, fig_width = 10, fig_height = 10, fig_caption = TRUE }
+library(ggplot2)
+library(scales)
+data1 <- soep1 %>%
+  group_by(Year) %>%
+summarize(n = n(),
+         mean = mean(Vegetarian),
+         sd = sd(Vegetarian),
+         se = sd / sqrt(n),
+         ci = qt(0.975, df = n - 1) * sd / sqrt(n))
+
+ggplot(data1, 
+       aes(x = Year, 
+           y = mean, 
+           group = 1)) +
+  geom_point(size=2, color="lightblue") +
+  geom_line(color="lightblue") + theme_classic() + labs(y= NULL, x="Year", title="Increase of vegetarianism in Germany in the last 5 years", caption= "Data source: SOEP-Core, v37") + geom_text(aes(label = scales::percent(mean)), nudge_x = .4, hjust = 0.6, show.legend = FALSE) + scale_x_continuous(breaks = c(2016, 2017, 2018, 2019, 2020))
+```
+
+Studies observed by Margaret Thorogood [-@T1995] involved a group of vegetarian individuals from different countries and different diet levels (strict vegetarian, occasional vegetarian) who had their eating habits studied for 10-12 years.
+At the end of the study, it was concluded that overall, vegetarians tend to have a better standard of health especially as some forms of cancer, diabetes and hypertension can be reliably related to diet.
+Another factor for the better health standard is the higher consumption of vegetables and fruits as well as the avoidance of meat.
+
+With the rise in vegetarianism, an important question concerning lifestyle becomes relevant: Are vegetarians more satisfied (or happier) than non-vegetarians?
+Past researchers evaluating the question had different outcomes according to the type of variables and conditions applied in their research.
+These results range from being vegetarian does not affect overall life satisfaction [@P2020]; to being vegetarian has a positive effect on overall life satisfaction when individuals have more connection with nature [@K2021]; and that being vegetarian combined with exercises can increase overall life satisfaction [@B2018].
+
+Self-assessed satisfaction can be difficult to measure, as it can only be defined as one own perception and different elements could increase or decrease the level of satisfaction, such as health, economic distress, unemployment, etc.
+This paper aims to affirm the validation of past research and explore the relationship between vegetarianism and life satisfaction.
+
+# Data
+
+The data to analyse the relationship between vegetarianism and happiness has been acquired from the German Socio-Economic Panel (SOEP), which is a Germany-wide questionnaire where private households have been interviewed.
+The purpose of this survey is to collect data about family and individual core, source of income, occupation, indicators of health and satisfaction, amongst other information.
+
+It is important to note that this questionnaire is the lengthiest in the world, having been carried out since 1984.
+As the survey is (almost always) conducted with the same households every year, it is possible to observe the development and changes in the population over the years.
+All information used here is taken from the SOEP v.37 teaching version.
+
+## Sample
+
+SOEP consists of different datasets, so for the purpose of this research, only the files referenced as *pequiv* and *pl* were filtered and all the values that are not relevant for the analysis, such as "did not answer" and "does not apply", were filtered out.
+The time period set for the research is between 2016 and 2020, as information on vegetarianism was inconsistent before this period and the years 2017 and 2019 had no values for vegetarianism and are not included.
+
+The definition of the term vegetarian is still ill-defined, but at its heart is the avoidance of consuming animal meat [@K2021].
+Given that vegans are, by definition, a subset of vegetarians, vegetarians and vegans will be fitted into the same category for the sake of ease of research.
+The number of vegans in this survey is only 295, representing only 0.07% of those surveyed.
+
+The sample has a population of N = 37,337 participants, among whom 7% are vegetarians (vegans are included) and the other 93% follow a non-vegetarian diet.
+Furthermore, information such as individual/household ID is not included to preserve the privacy of the participants.
+
+## Variables
+
+For the purpose of the research and to facilitate a better understanding of self-assessed satisfaction, six variables were selected from the aforementioned *pequiv* and *pl* files.
+
+```{r , warning=FALSE, echo=FALSE, message=FALSE, include=TRUE, caption= "Description of SOEP Variables"}
+library(formattable)
+a <- c('syear', 'p11101', 'ple0182', 'd11102ll', 'd11108', 'm11125')
+b <- c('pequiv and pl', 'pequiv', 'pl', 'pequiv', 'pequiv', 'pequiv')
+c <- c('Survey Year', 'Overall life satisfaction', '[de] Vegetarische oder vegane Ernaehrung', 'Gender of Individual', 'Education With Respect to High School', 'Satisfaction with Health')
+d <- c('year', 'life_satisfaction', 'diet', 'gender', 'education_level', 'health_satisfaction')
+df <- data.frame(a,b,c,d)
+names(df) <- c("Variable SOEP", "Dataset", "Description", "Name in this Research")
+formattable(df, align = c('c', 'c','c','c'), list(formatter(font.weight = "bold")))
+```
+
+### Dependent variable
+
+**Life Satisfaction**: Self-assessed life satisfaction measured on an 11-point Likert-type ranging from 0 = *Very Unsatisfied* to 10 = *Very Satisfied*.
+
+### Explanatory variables
+
+**Diet**: Assessed by the type of diet an individual follows a 0 = non-vegetarian diet or 1 = vegetarian (vegan included).
+In the original dataset, these values are 1 = vegetarian, 2 = vegan and 3 = non-vegetarian.
+
+**Health Satisfaction**: Self-assessed health satisfaction measured on an 11-point Likert-type ranging from 0 = *Very Unsatisfied* to 10 = *Very Satisfied*.
+
+**Socio-Demographic Variables**: The variables **age** (age of individual measured in years with min 18 and max 102); **gender** (0 = male, 1 = female) and **educational** level (1 = lower than secondary school, 2 = secondary school, 3 = higher education) were included for additional assessment.
+It is not specified in this dataset whether *higher education* is equivalent to a *Bachelor, Ausbildung, Duales Studium* or any other form of higher education in Germany.
+
+# Descriptive Statistics
+
+```{r , warning=FALSE, echo=FALSE, message=FALSE, include=TRUE}
+library(gtsummary)
+library(dplyr)
+tbl <- data %>%
+  dplyr::select(diet, gender, age, life_satisfaction, health_satisfaction, education_level) %>%
+  mutate(Age = case_when(age <=35 ~ "18-35", 
+                         age <=50 ~ "35-50",
+                         age <= 75 ~ "50-75",
+                         age >75 ~ "75+"))%>%
+  tbl_summary(
+    by = diet,
+    label = list(gender ~ "Gender of Individual", age ~ "Age of Population (18-102)", life_satisfaction ~ "Self-Assessed Life Satisfaction", health_satisfaction ~ "Self-Assessed Health Satisfaction", education_level ~ "Education Level", Age ~ "Age in Groups"),
+    type = all_continuous() ~ "continuous2",
+    statistic = all_continuous() ~ c("{median} ({p25}, {p75})"),
+missing = "no") %>%
+   modify_footnote(
+    all_stat_cols() ~ "Median (IQR) or Frequency (%)") %>%
+  modify_caption("**Table 1: Summary Statistics**") %>%
+  add_p() %>% 
+  add_overall(across = 'diet') %>%
+   bold_labels() %>%
+  as_gt(include = -cols_align) %>%
+  gt::tab_source_note(gt::md("Values for health and life satisfaction: *0-1 (Very Unsatisfied), 2-3 (Unsatisfied), 4-6 (Neutral), 7-8 (Satisfied), 9-10 (Very Satisfied)*"))
+tbl
+```
+
+There are some observations that can be drawn from this table.
+First, the level of life satisfaction between vegetarians and non-vegetarians does not differ much and the percentage of difference is very small being 55% for vegetarians and 54% for non-vegetarians.
+Second, vegetarians seem to describe their level of health satisfaction as much more "very satisfied" (27%) than non-vegetarians (21%).
+And finally, it is also possible to note that vegetarians tend to have a higher level of education (42%) when compared to non-vegetarians (28%).
+
+```{r , fig.cap= "Figure 2: Assessment of life and health satisfaction according to diet", warning=FALSE, echo=TRUE, message=FALSE, include=TRUE,fig_caption = TRUE}
+library(ggplot2)
+library (gridExtra)
+library(scales)
+
+g1 <- data %>% 
+    group_by(diet, life_satisfaction) %>% 
+    summarise (n = n()) %>%
+    mutate(prop = n / sum(n))
+
+g1g <-  ggplot(g1,aes(life_satisfaction,prop,fill=diet))+
+  geom_bar(stat="identity",position=  'dodge')+
+  labs(title= "Life Satisfaction by Diet") +
+  scale_fill_brewer(palette="Paired")+ labs(x = NULL) + labs(fill="") +
+  scale_y_continuous(labels = scales::percent, name = "Proportion (n)") + theme_minimal()+ theme(panel.grid.minor = element_blank()) + coord_flip()
+
+g2 <- data %>% 
+    group_by(diet, health_satisfaction) %>% 
+    summarise (n = n()) %>%
+    mutate(prop = n / sum(n))
+
+g2g <-  ggplot(g2,aes(health_satisfaction,prop,fill=diet))+
+  geom_bar(stat="identity",position=  'dodge')+
+  labs(title= "Health Satisfaction by Diet")+ labs(x = NULL) + labs(fill="") +
+  scale_y_continuous(labels = scales::percent, name = "Proportion (n)") + theme_minimal() + theme(panel.grid.minor = element_blank()) +scale_fill_brewer(palette="Paired") + coord_flip() +  labs(caption= "Data source: SOEP-Core, v37")
+  
+  grid.arrange(g1g, g2g)
+  
+```
+
+It is also interesting to note that the number of vegetarian women is more than double (69%) the proportion of vegetarian men (31%).
+This observation corroborates Pfeiler and Egloff's research [-@P2020] which states that vegetarians are generally young women with higher education.
+
+```{r , fig.cap= "Figure 3: Assessment of education level according to diet", warning=FALSE, echo=TRUE, message=FALSE, include=TRUE, fig_caption = TRUE}
+library(ggplot2)
+library (gridExtra)
+library(scales)
+
+g3 <- data %>% 
+    group_by(diet, education_level) %>% 
+    summarise (n = n()) %>%
+    mutate(prop = n / sum(n))
+
+g3g <-  ggplot(g3,aes(education_level,prop,fill=diet))+
+  geom_bar(stat="identity",position=  'dodge')+
+  labs(title= "Education Level by Diet") +
+  scale_fill_brewer(palette="Paired")+ labs(x = NULL) + labs(fill="") +
+  scale_y_continuous(labels = scales::percent, name = "Proportion (n)") + theme_minimal()+ theme(panel.grid.minor = element_blank()) + scale_x_discrete(labels=c("< Secondary School", "Secondary School", "Higher Education")) + labs(caption= "Data source: SOEP-Core, v37") 
+
+g3g
+```
+
+# Data Analysis
+
+## Method
+
+Due to the asymmetric number of observations (2,619 for vegetarians and 34,718 for non-vegetarians), it is not possible to measure the relationship using only life satisfaction and diet variables as the result could be misleading since socio-demographic variables are important in the distribution.
+
+Considering that the dependent variable is categorical (ordinal) Likert-type, the recommended model to observe if there is a relationship between the variables is an ordinal logistic regression.
+Compared to a conventional regression, the ordinal logistic model tends to be more selective in selecting variables that have a significant impact on the response.
+[@Y2019]
+
+**Formula:**
+
+$$logit(P(Y≤j))=β_j0–η_1 x_1–⋯–η_p x_p.$$
+
+```{r , warning=FALSE, echo=TRUE, message=FALSE, results='hide'}
+library(MASS)
+model1 <- polr(life_satisfaction~ diet + health_satisfaction + gender + age + education_level, data = datastats, Hess = TRUE)
+summary(model1)$coef
+```
+
+```{r ,fig.cap= "Table 2: Ordinal Logistic Regression including estimate and p-value", warning=FALSE, echo=FALSE, message=FALSE, include=TRUE, results='asis'}
+library(stargazer)
+mst <- stargazer(model1, title = "Ordinal Logistic Regression", dep.var.caption=c('Dependent Variable'), dep.var.labels=c('Life Satisfaction'), type = "html", align = TRUE, single.row = T, report=("vc*p"), omit = c("Constant", "health_satisfaction"), omit.stat = c("f"), model.numbers = FALSE, covariate.labels = c( "Vegetarian", "Gender: Male","Age", "Higher Education", "Lower than Secondary School"))
+```
+
+# Results
+
+The regression results show that there is no significant relationship between diet and life satisfaction.
+The p-value of 0.3 indicates that there is no statistical significance between the dependent variable life satisfaction and the explanatory variable diet.
+Fail to reject H0 as it is not possible to conclude the association between life satisfaction and vegetarianism.
+
+However, it is important to note that there are smaller effects influenced by socio-demographic variables such as educational level (p = 0.003) and age (p = 0.000).
+To further support the test, the ANOVA model will be applied to observe the likelihood ratio effect.
+
+```{r , warning=FALSE, echo=TRUE, message=FALSE, include=TRUE}
+library(car)
+Anova(model1)
+```
+
+The likelihood ratio of 0.8 points that the number of observations is too small to have a more precise result regarding the relationship between the variables.
+It is expected as the number of vegetarians and vegans is drastically smaller than non-vegetarians in the data.
+Note that R² does not apply to this method, as there are several pseudo R² and all tend to vary in significance in this regression method.
+
+# Conclusion
+
+The study presented here provides evidence that vegetarianism has no relationship with overall life satisfaction.
+This conclusion has already been reached in previous studies, as cited at the beginning of the text [@P2020; @K2021; @B2018].
+The socio-demographics variables were able to exhibit a slight effect as it was possible to establish that vegetarians are, in general, young adults and have a higher education compared to non-vegetarians.
+
+There are a number of factors that could contribute to the lack of evidence for this relationship, such as a lack of data from 2017 and 2019, despite the substantial increase in vegetarians between 2018 and 2020 (approximately 547 people started to follow a vegetarian diet and it is possible to assess this information in Figure 1).
+Another factor is self-assessed health satisfaction, which, contrary to expectations, does not have a significant impact when compared to life satisfaction.
+
+Additionally, there is the possibility of conducting future research to compare the levels of general life satisfaction among people who follow a non-vegetarian, vegetarian, or vegan diet.
+Unfortunately, the number of vegans in the data set is too small to conduct a significant study and do a comparison.
+
+To summarise, it is clear that following a vegetarian diet does not necessarily imply greater life satisfaction.
+There are other factors that are important when performing an auto-assessment of satisfaction that are difficult to compute in a questionnaire such as SOEP.
+
+# References

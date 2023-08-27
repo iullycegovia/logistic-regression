@@ -13,4 +13,4 @@ The analysis is conducted using the Socio-Economic Panel (SOEP) dataset. Due to 
 R (most recent version)
 RStudio (optional but recommended)
 
-# THIS PROJECT IS ONLY TO EMPHASIZE MY KNOWLEDGE IN DATA AND R!!
+# This project was a university paper and it's available only to show my knowledge and experience with R and different packages. 
